@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="JustifyTextView">
+        <attr name="leftText" format="string"/>
+        <attr name="rightText" format="string"/>
+        <attr name="leftTextSize" format="dimension"/>
+        <attr name="rightTextSize" format="dimension"/>
+        <attr name="leftTextColor" format="color|integer"/>
+        <attr name="rightTextColor" format="color|integer"/>
+        <attr name="leftIcon" format="reference"/>
+        <attr name="rightIcon" format="reference"/>
+        <attr name="leftIconPadding" format="dimension"/>
+        <attr name="rightIconPadding" format="dimension"/>
+    </declare-styleable>
+</resources>
