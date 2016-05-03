@@ -1,25 +1,50 @@
 package berial.ml.justifytextview;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
+import android.os.Bundle;
+import android.os.Parcelable;
+import android.support.annotation.DrawableRes;
+import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
-import android.view.Gravity;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.view.View;
 
 /**
  * 两端对齐的TextView, 如:
- * ----------------------
- * |文字1            文字2|
- * ----------------------
+ * ---------------------------------
+ * |图片1 文字1            文字2 图片2|
+ * ---------------------------------
  * Created by Berial on 15/10/22.
  */
-public class JustifyTextView extends LinearLayout {
+public class JustifyTextView extends View {
 
-    private TextView mLeftText, mRightText;
+    private static final String SUPER_STATE = "superState";
+    private static final String LEFT_TEXT = "leftText";
+    private static final String RIGHT_TEXT = "rightText";
+    private static final String LEFT_TEXT_COLOR = "left_textColor";
+    private static final String RIGHT_TEXT_COLOR = "right_textColor";
+    private static final String LEFT_TEXT_SIZE = "leftTextSize";
+    private static final String RIGHT_TEXT_SIZE = "rightTextSize";
+    private static final String LEFT_ICON = "leftIcon";
+    private static final String LEFT_ICON_PADDING = "leftIconPadding";
+    private static final String RIGHT_ICON = "rightIcon";
+    private static final String RIGHT_ICON_PADDING = "rightIconPadding";
+
+    private CharSequence mLeftText, mRightText;
+    private float mLeftTextSize, mRightTextSize;
+    private int mLeftIconPadding, mRightIconPadding;
+    private int mLeftTextColor, mRightTextColor;
+    private int mLeftIconRes, mRightIconRes;
+    private Drawable mLeftIcon, mRightIcon;
+    private Resources mRes;
+    private Paint mPaint;
 
     public JustifyTextView(Context context) {
         this(context, null, 0);
@@ -32,93 +57,183 @@ public class JustifyTextView extends LinearLayout {
     public JustifyTextView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
-        setOrientation(HORIZONTAL);
-
         final TypedArray t = context.obtainStyledAttributes(attrs, R.styleable.JustifyTextView);
-        float mLeftTextSize;
-        float mRightTextSize;
-        int mLeftIconPadding;
-        int mRightIconPadding;
-        int mLeftTextColor;
-        int mRightTextColor;
-        Drawable mLeftIcon;
-        Drawable mRightIcon;
-        CharSequence strLeftText;
-        CharSequence strRightText;
-        try {
-            strLeftText = t.getText(R.styleable.JustifyTextView_leftText);
-            strRightText = t.getText(R.styleable.JustifyTextView_rightText);
+        readAttrs(t);
 
-            mLeftIcon = t.getDrawable(R.styleable.JustifyTextView_leftIcon);
-            mRightIcon = t.getDrawable(R.styleable.JustifyTextView_rightIcon);
+        mPaint = new Paint();
+        mPaint.setAntiAlias(true);
+
+        setClickable(true);
+    }
+
+    private void readAttrs(TypedArray t) {
+        try {
+            mLeftText = t.getText(R.styleable.JustifyTextView_leftText);
+            mRightText = t.getText(R.styleable.JustifyTextView_rightText);
+
+            mLeftIconRes = t.getResourceId(R.styleable.JustifyTextView_leftIcon, 0);
+            mRightIconRes = t.getResourceId(R.styleable.JustifyTextView_rightIcon, 0);
 
             final int defaultColor = Color.BLACK;
 
             mLeftTextColor = t.getColor(R.styleable.JustifyTextView_leftTextColor, defaultColor);
             mRightTextColor = t.getColor(R.styleable.JustifyTextView_rightTextColor, defaultColor);
 
-            final float defaultTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14,
-                    getResources().getDisplayMetrics());
+            mRes = getResources();
+            final DisplayMetrics dm = mRes.getDisplayMetrics();
+            final float d16 = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 16, dm);
+            final float d14 = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, dm);
 
-            mLeftTextSize = t.getDimension(R.styleable.JustifyTextView_leftTextSize, defaultTextSize);
-            mRightTextSize = t.getDimension(R.styleable.JustifyTextView_rightTextSize, defaultTextSize);
-
+            mLeftTextSize = t.getDimension(R.styleable.JustifyTextView_leftTextSize, d16);
+            mRightTextSize = t.getDimension(R.styleable.JustifyTextView_rightTextSize, d14);
 
             mLeftIconPadding = t.getDimensionPixelSize(R.styleable.JustifyTextView_leftIconPadding, 0);
             mRightIconPadding = t.getDimensionPixelSize(R.styleable.JustifyTextView_rightIconPadding, 0);
         } finally {
             t.recycle();
         }
-        mLeftText = new TextView(context);
-        mRightText = new TextView(context);
+    }
 
-        mLeftText.setGravity(Gravity.CENTER_VERTICAL);
-        mRightText.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        int leftPadding = getPaddingLeft();
+        int rightPadding = getPaddingRight();
 
-        mLeftText.setText(strLeftText);
-        mRightText.setText(strRightText);
+        int leftIconWidth = 0;
+        int rightIconWidth = 0;
 
-        mLeftText.setTextColor(mLeftTextColor);
-        mRightText.setTextColor(mRightTextColor);
-
-        mLeftText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mLeftTextSize);
-        mRightText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mRightTextSize);
-
-        if(mLeftIcon != null) {
-            mLeftIcon.setBounds(0, 0, mLeftIcon.getIntrinsicWidth(),
-                    mLeftIcon.getIntrinsicHeight());
-            mLeftText.setCompoundDrawables(mLeftIcon, null, null, null);
+        if (mLeftIconRes != 0) {
+            mLeftIcon = mRes.getDrawable(mLeftIconRes);
         }
 
-        if(mRightIcon != null) {
-            mRightIcon.setBounds(0, 0, mRightIcon.getIntrinsicWidth(),
-                    mRightIcon.getIntrinsicHeight());
-            mRightText.setCompoundDrawables(null, null, mRightIcon, null);
+        if (mLeftIcon != null) {
+            leftIconWidth = mLeftIcon.getIntrinsicWidth();
+            int h = mLeftIcon.getIntrinsicHeight();
+
+            mLeftIcon.setBounds(leftPadding, getHeight() / 2 - h / 2, leftIconWidth + leftPadding,
+                    getHeight() / 2 + h / 2);
+            mLeftIcon.draw(canvas);
         }
 
-        mLeftText.setCompoundDrawablePadding(mLeftIconPadding);
-        mRightText.setCompoundDrawablePadding(mRightIconPadding);
+        if (mRightIconRes != 0) {
+            mRightIcon = mRes.getDrawable(mRightIconRes);
+        }
 
-        addView(mLeftText, -2, -1);//-2: wrap_content, -1: match_parent
-        addView(mRightText, -1, -1);
+        if (mRightIcon != null) {
+            rightIconWidth = mRightIcon.getIntrinsicWidth();
+            int h = mRightIcon.getIntrinsicHeight();
+
+            mRightIcon.setBounds(getWidth() - rightIconWidth - rightPadding, getHeight() / 2 - h / 2,
+                    getWidth() - rightPadding, getHeight() / 2 + h / 2);
+            mRightIcon.draw(canvas);
+        }
+
+        if (!TextUtils.isEmpty(mLeftText)) {
+            int left = leftPadding + mLeftIconPadding + leftIconWidth;
+
+            mPaint.setColor(mLeftTextColor);
+            mPaint.setTextSize(mLeftTextSize);
+            mPaint.setTextAlign(Paint.Align.LEFT);
+            Paint.FontMetrics fm = mPaint.getFontMetrics();
+
+            float baseline = (getHeight() - fm.ascent - fm.descent) / 2;
+
+            canvas.drawText(mLeftText, 0, mLeftText.length(), left, baseline, mPaint);
+        }
+
+        if (!TextUtils.isEmpty(mRightText)) {
+            int right = rightPadding + mRightIconPadding + rightIconWidth;
+
+            mPaint.setColor(mRightTextColor);
+            mPaint.setTextSize(mRightTextSize);
+            mPaint.setTextAlign(Paint.Align.RIGHT);
+            Paint.FontMetrics fm = mPaint.getFontMetrics();
+
+            float baseline = (getHeight() - fm.ascent - fm.descent) / 2;
+
+            canvas.drawText(mRightText, 0, mRightText.length(), getWidth() - right, baseline, mPaint);
+        }
     }
 
     public void setLeftText(CharSequence text) {
-        mLeftText.setText(text);
+        mLeftText = text;
+        invalidate();
     }
 
     public void setLeftText(int stringRes) {
-        mLeftText.setText(stringRes);
+        setLeftText(mRes.getString(stringRes));
     }
 
     public void setRightText(CharSequence text) {
-        mRightText.setText(text);
+        mRightText = text;
+        invalidate();
     }
 
     public void setRightText(int stringRes) {
-        mRightText.setText(stringRes);
+        setRightText(mRes.getString(stringRes));
+    }
+
+    /**
+     * 设置左侧图标资源
+     *
+     * @param leftIconRes 图标资源id
+     */
+    public void setLeftIcon(@DrawableRes int leftIconRes) {
+        mLeftIconRes = leftIconRes;
+        invalidate();
+    }
+
+    public void setRightIcon(@DrawableRes int rightIconRes) {
+        mRightIconRes = rightIconRes;
+        invalidate();
     }
 
     //TODO 方法拓展
 
+    @Override
+    protected Parcelable onSaveInstanceState() {
+        Parcelable superState = super.onSaveInstanceState();
+        Bundle bundle = new Bundle();
+        bundle.putParcelable(SUPER_STATE, superState);
+
+        bundle.putCharSequence(LEFT_TEXT, mLeftText);
+        bundle.putInt(LEFT_TEXT_COLOR, mLeftTextColor);
+        bundle.putFloat(LEFT_TEXT_SIZE, mLeftTextSize);
+        bundle.putInt(LEFT_ICON, mLeftIconRes);
+        bundle.putInt(LEFT_ICON_PADDING, mLeftIconPadding);
+
+        bundle.putCharSequence(RIGHT_TEXT, mRightText);
+        bundle.putInt(RIGHT_TEXT_COLOR, mRightTextColor);
+        bundle.putFloat(RIGHT_TEXT_SIZE, mRightTextSize);
+        bundle.putInt(RIGHT_ICON, mRightIconRes);
+        bundle.putInt(RIGHT_ICON_PADDING, mRightIconPadding);
+
+        return bundle;
+    }
+
+
+    @Override
+    protected void onRestoreInstanceState(Parcelable state) {
+        if (state instanceof Bundle) {
+            Bundle bundle = (Bundle) state;
+
+            mLeftText = bundle.getString(LEFT_TEXT);
+            mLeftIconRes = bundle.getInt(LEFT_ICON);
+            mLeftIconPadding = bundle.getInt(LEFT_ICON_PADDING);
+            mLeftTextSize = bundle.getFloat(LEFT_TEXT_SIZE);
+            mLeftTextColor = bundle.getInt(LEFT_TEXT_COLOR);
+
+
+            mRightText = bundle.getString(RIGHT_TEXT);
+            mRightIconRes = bundle.getInt(RIGHT_ICON);
+            mRightIconPadding = bundle.getInt(RIGHT_ICON_PADDING);
+            mRightTextSize = bundle.getFloat(RIGHT_TEXT_SIZE);
+            mRightTextColor = bundle.getInt(RIGHT_TEXT_COLOR);
+
+            super.onRestoreInstanceState(bundle.getParcelable(SUPER_STATE));
+        } else {
+            super.onRestoreInstanceState(state);
+        }
+    }
 }
